@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary">{{ current_month }}</button>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Warnings -->
+{% if budget_warnings %}
+<div class="alert alert-warning">
+    <h5><i class="fas fa-exclamation-triangle me-2"></i> Budget Warnings</h5>
+    <ul class="mb-0">
+        {% for warning in budget_warnings %}
+        <li>{{ warning }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card income-card">
+            <div class="stat-card">
+                <i class="fas fa-money-bill-wave"></i>
+                <h3>₹{{ total_income|round(2) }}</h3>
+                <p>Total Income</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card expense-card">
+            <div class="stat-card">
+                <i class="fas fa-shopping-cart"></i>
+                <h3>₹{{ total_expense|round(2) }}</h3>
+                <p>Total Expenses</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card savings-card">
+            <div class="stat-card">
+                <i class="fas fa-piggy-bank"></i>
+                <h3>₹{{ savings|round(2) }}</h3>
+                <p>Savings</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column -->
+    <div class="col-lg-8">
+        <!-- Income vs Expenses Chart -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i>Income vs Expenses
+            </div>
+            <div class="card-body">
+                <canvas id="incomeExpenseChart" height="250"></canvas>
+            </div>
+        </div>
+        
+        <!-- Transaction Forms -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-plus-circle me-2"></i>Add Income
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="/add_income">
+                            <div class="mb-3">
+                                <label class="form-label">Source</label>
+                                <select class="form-select" name="source" required>
+                                    <option value="Salary">Salary</option>
+                                    <option value="Freelance">Freelance</option>
+                                    <option value="Investment">Investment</option>
+                                    <option value="Rental">Rental</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Amount (₹)</label>
+                                <input type="number" step="0.01" class="form-control" name="amount" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" name="date" required value="{{ datetime.now().strftime('%Y-%m-%d') }}">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Notes</label>
+                                <textarea class="form-control" name="notes" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Income</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-minus-circle me-2"></i>Add Expense
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="/add_expense">
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" name="category" required>
+                                    <option value="Food">Food</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Entertainment">Entertainment</option>
+                                    <option value="Shopping">Shopping</option>
+                                    <option value="Utilities">Utilities</option>
+                                    <option value="Healthcare">Healthcare</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <input type="text" class="form-control" name="description" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Amount (₹)</label>
+                                <input type="number" step="0.01" class="form-control" name="amount" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" name="date" required value="{{ datetime.now().strftime('%Y-%m-%d') }}">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Expense</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column -->
+    <div class="col-lg-4">
+        <!-- Expense Categories -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-chart-pie me-2"></i>Expense Categories
+            </div>
+            <div class="card-body">
+                <canvas id="expenseChart" height="250"></canvas>
+            </div>
+        </div>
+        
+        <!-- Budgets -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-bullseye me-2"></i>Budget Limits
+                </div>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addBudgetModal">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <div class="card-body">
+                {% if budgets %}
+                    <ul class="list-group list-group-flush">
+                        {% for budget in budgets %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ budget.category }}</strong>
+                                <span>₹{{ budget.limit_amount|round(2) }}</span>
+                            </div>
+                            <form method="POST" action="/delete_budget/{{ budget.id }}" style="margin:0;">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Remove Budget Limit">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">No budgets set</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Reminders -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-bell me-2"></i>Reminders
+                </div>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addReminderModal">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <div class="card-body">
+                {% if reminders %}
+                    <ul class="list-group list-group-flush">
+                        {% for reminder in reminders %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ reminder.note }}</strong><br>
+                                <small class="text-muted">{{ reminder.remind_date.strftime('%d %b %Y') }}</small>
+                            </div>
+                            <div>
+                                <form method="POST" action="/complete_reminder/{{ reminder.id }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success" title="Mark as completed">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="/delete_reminder/{{ reminder.id }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">No reminders set</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Savings Goals -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-piggy-bank me-2"></i>Savings Goals
+                </div>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addSavingsModal">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <div class="card-body">
+                {% if savings_goals %}
+                    <ul class="list-group list-group-flush">
+                        {% for goal in savings_goals %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>{{ goal.goal }}</strong>
+                                <span>₹{{ goal.current_amount|round(2) }} / ₹{{ goal.target_amount|round(2) }}</span>
+                            </div>
+                            <div class="progress savings-progress">
+                                {% set progress = (goal.current_amount / goal.target_amount * 100)|round(1) %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                    style="width: {{ progress }}%">{{ progress }}%</div>
+                            </div>
+                            <form method="POST" action="/update_savings/{{ goal.id }}" class="mt-2">
+                                <div class="input-group">
+                                    <input type="number" step="0.01" class="form-control" name="amount" placeholder="Add amount" required>
+                                    <button type="submit" class="btn btn-success">Add</button>
+                                </div>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">No savings goals set</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Budget Modal -->
+<div class="modal fade" id="addBudgetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Budget Limit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="/add_budget">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <select class="form-select" id="category" name="category" required>
+                            <option value="Food">Food</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Healthcare">Healthcare</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="limit_amount" class="form-label">Limit Amount (₹)</label>
+                        <input type="number" step="0.01" class="form-control" id="limit_amount" name="limit_amount" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Budget</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Reminder Modal -->
+<div class="modal fade" id="addReminderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Reminder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="/add_reminder">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="note" class="form-label">Reminder Note</label>
+                        <input type="text" class="form-control" id="note" name="note" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="remind_date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="remind_date" name="remind_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Reminder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Savings Goal Modal -->
+<div class="modal fade" id="addSavingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Savings Goal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="/add_savings_goal">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="goal" class="form-label">Goal Name</label>
+                        <input type="text" class="form-control" id="goal" name="goal" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="target_amount" class="form-label">Target Amount (₹)</label>
+                        <input type="number" step="0.01" class="form-control" id="target_amount" name="target_amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="target_date" class="form-label">Target Date</label>
+                        <input type="date" class="form-control" id="target_date" name="target_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Goal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Expense Categories Chart
+    const expenseCtx = document.getElementById('expenseChart').getContext('2d');
+    const expenseData = {
+        labels: [
+            {% for category in expense_categories %}
+                "{{ category.category }}",
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for category in expense_categories %}
+                    {{ category.total }},
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                '#9966FF', '#FF9F40', '#8AC926', '#1982C4'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    new Chart(expenseCtx, {
+        type: 'doughnut',
+        data: expenseData,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                },
+                title: {
+                    display: true,
+                    text: 'Expense Distribution'
+                }
+            }
+        }
+    });
+    
+    // Income vs Expense Chart
+    const incomeExpenseCtx = document.getElementById('incomeExpenseChart').getContext('2d');
+    const monthlyData = {
+        months: [
+            {% for trend in monthly_trends|reverse %}
+                "{{ trend.month }}",
+            {% endfor %}
+        ],
+        income: [
+            {% for trend in monthly_trends|reverse %}
+                {{ trend.income }},
+            {% endfor %}
+        ],
+        expense: [
+            {% for trend in monthly_trends|reverse %}
+                {{ trend.expense }},
+            {% endfor %}
+        ]
+    };
+    
+    new Chart(incomeExpenseCtx, {
+        type: 'bar',
+        data: {
+            labels: monthlyData.months,
+            datasets: [
+                {
+                    label: 'Income',
+                    data: monthlyData.income,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Expenses',
+                    data: monthlyData.expense,
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Monthly Income vs Expenses'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

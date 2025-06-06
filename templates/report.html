@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Monthly Report{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Monthly Income and Expense Report</h1>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Month</th>
+            <th>Income (₹)</th>
+            <th>Expense (₹)</th>
+            <th>Savings (₹)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in monthly_report %}
+        <tr>
+            <td>{{ row.month }}</td>
+            <td>{{ row.income|round(2) }}</td>
+            <td>{{ row.expense|round(2) }}</td>
+            <td>{{ (row.income - row.expense)|round(2) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if not pdf %}
+<div class="text-center mt-4">
+    <a href="/report/pdf" class="btn btn-danger">Download as PDF</a>
+    <a href="/dashboard" class="btn btn-secondary ms-2">Back to Dashboard</a>
+</div>
+{% endif %}
+{% endblock %}

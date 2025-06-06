@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block styles %}
+<style>
+  body.dark-mode {
+    background-color: #121212;
+    color: #e0e0e0;
+  }
+  .navbar.dark-mode {
+    background: linear-gradient(135deg, #222, #444);
+  }
+  .card.dark-mode {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+<div class="card p-4 mt-4">
+  <h5>Theme</h5>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="darkModeToggle">
+    <label class="form-check-label" for="darkModeToggle">Enable Dark Mode</label>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const toggle = document.getElementById('darkModeToggle');
+  const body = document.body;
+  const navbar = document.querySelector('.navbar');
+  const cards = document.querySelectorAll('.card');
+
+  // Load saved mode from localStorage
+  function loadMode() {
+    const mode = localStorage.getItem('themeMode');
+    if (mode === 'dark') {
+      body.classList.add('dark-mode');
+      navbar.classList.add('dark-mode');
+      cards.forEach(card => card.classList.add('dark-mode'));
+      toggle.checked = true;
+    } else {
+      body.classList.remove('dark-mode');
+      navbar.classList.remove('dark-mode');
+      cards.forEach(card => card.classList.remove('dark-mode'));
+      toggle.checked = false;
+    }
+  }
+
+  // Toggle dark mode
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      body.classList.add('dark-mode');
+      navbar.classList.add('dark-mode');
+      cards.forEach(card => card.classList.add('dark-mode'));
+      localStorage.setItem('themeMode', 'dark');
+    } else {
+      body.classList.remove('dark-mode');
+      navbar.classList.remove('dark-mode');
+      cards.forEach(card => card.classList.remove('dark-mode'));
+      localStorage.setItem('themeMode', 'light');
+    }
+  });
+
+  // Initialize on page load
+  loadMode();
+</script>
+{% endblock %}
