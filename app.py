@@ -1,3 +1,5 @@
+from decimal import Decimal
+import math
 from flask import Flask, render_template, request, redirect, session, flash
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
@@ -10,7 +12,7 @@ app.secret_key = 'your_secret_key'
 # ---------- MySQL Config ----------
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'your_mysql_password'
+app.config['MYSQL_PASSWORD'] = 'Dhanu@2005'
 app.config['MYSQL_DB'] = 'findb'
 
 mysql = MySQL(app)
@@ -114,6 +116,27 @@ def dashboard():
     """, (user_id, user_id))
     monthly_trends = cursor.fetchall()
 
+    # Monthly Expense Growth (cumulative sum by date)
+    cursor.execute("""
+        SELECT date,
+               SUM(amount) AS daily_expense,
+               (SELECT SUM(amount) FROM expenses e2 WHERE e2.user_id = %s AND e2.date <= e1.date) AS cumulative_expense
+        FROM expenses e1
+        WHERE user_id = %s
+        GROUP BY date
+        ORDER BY date ASC
+    """, (user_id, user_id))
+    expense_growth = cursor.fetchall()
+
+    # Fetch individual expenses for listing
+    cursor.execute("""
+        SELECT id, category, description, amount, date
+        FROM expenses
+        WHERE user_id = %s
+        ORDER BY date DESC
+    """, (user_id,))
+    expenses = cursor.fetchall()
+
     return render_template('dashboard.html',
                            total_income=total_income,
                            total_expense=total_expense,
@@ -125,7 +148,8 @@ def dashboard():
                            budget_warnings=budget_warnings,
                            current_month=datetime.now().strftime('%B %Y'),
                            monthly_trends=monthly_trends,
-                           datetime=datetime)
+                           datetime=datetime,
+                           expenses=expenses)
 
 # ---------- FORM HANDLERS ----------
 @app.route('/add_income', methods=['POST'])
@@ -139,16 +163,55 @@ def add_income():
     mysql.connection.commit()
     return redirect('/dashboard')
 
+from decimal import Decimal
+
 @app.route('/add_expense', methods=['POST'])
 def add_expense():
     if 'user_id' not in session:
         return redirect('/')
-    cursor = mysql.connection.cursor()
-    cursor.execute("INSERT INTO expenses (user_id, category, description, amount, date) VALUES (%s, %s, %s, %s, %s)", (
-        session['user_id'], request.form['category'], request.form['description'], request.form['amount'], request.form['date']
-    ))
-    mysql.connection.commit()
+    user_id = session['user_id']
+    category = request.form['category']
+    description = request.form.get('description', '')
+    amount_str = request.form['amount']
+    date_str = request.form['date']
+    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    try:
+        amount = Decimal(amount_str)
+    except:
+        flash("Invalid amount value.", "danger")
+        return redirect('/dashboard')
+
+    # Get current total expense for the category
+    cursor.execute("SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE user_id=%s AND category=%s", (user_id, category))
+    current_total = cursor.fetchone()['total']
+
+    # Ensure current_total is Decimal
+    if not isinstance(current_total, Decimal):
+        current_total = Decimal(current_total)
+
+    # Get budget limit for the category
+    cursor.execute("SELECT limit_amount FROM budget WHERE user_id=%s AND category=%s", (user_id, category))
+    budget = cursor.fetchone()
+
+    if budget:
+        limit_amount = Decimal(budget['limit_amount'])
+        if (current_total + amount) > limit_amount:
+            flash(f"Expense exceeds the budget limit of ₹{budget['limit_amount']} for category {category}. Expense not added.", "danger")
+            return redirect('/dashboard')
+
+    # Insert expense if within budget
+    try:
+        cursor.execute("INSERT INTO expenses (user_id, category, description, amount, date) VALUES (%s, %s, %s, %s, %s)", (
+            user_id, category, description, amount, date_str
+        ))
+        mysql.connection.commit()
+    except Exception as e:
+        flash(f"Error adding expense: {str(e)}", "danger")
+        return redirect('/dashboard')
+
     return redirect('/dashboard')
+
 
 @app.route('/add_budget', methods=['POST'])
 def add_budget():
@@ -292,5 +355,15 @@ def delete_budget(id):
     mysql.connection.commit()
     return redirect('/dashboard')
 
+@app.route('/delete_expense/<int:id>', methods=['POST'])
+def delete_expense(id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    cursor = mysql.connection.cursor()
+    cursor.execute("DELETE FROM expenses WHERE id=%s AND user_id=%s", (id, session['user_id']))
+    mysql.connection.commit()
+    return redirect('/dashboard')
+
 if __name__ == '__main__':
     app.run(debug=True)
+
