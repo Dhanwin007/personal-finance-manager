@@ -1,5 +1,5 @@
 ---run this code in the sql workbench or sql cli before running the command "python app.py" to launch the website----
-CREATE DATABASE IF NOT EXISTS karthidb;
+CREATE DATABASE IF NOT EXISTS findb;
 USE findb;
 
 CREATE TABLE users (
